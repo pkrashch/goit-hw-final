@@ -89,3 +89,9 @@ variable "monthly_budget_usd" {
   type    = number
   default = 50
 }
+
+variable "existing_anomaly_monitor_arn" {
+  description = "ARN of an existing Cost Anomaly monitor (AWS allows one SERVICE monitor per account). Empty = create one."
+  type        = string
+  default     = ""
+}

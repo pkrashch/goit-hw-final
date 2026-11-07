@@ -30,16 +30,21 @@ resource "aws_budgets_budget" "monthly" {
 
 # Cost Explorer: anomaly detection per AWS service (Cost Explorer itself is
 # enabled once in the console: Billing -> Cost Explorer -> Launch).
+# AWS allows only ONE dimensional SERVICE monitor per account. If the account
+# already has one, pass its ARN via existing_anomaly_monitor_arn.
 resource "aws_ce_anomaly_monitor" "services" {
+  count             = var.existing_anomaly_monitor_arn == "" ? 1 : 0
   name              = "${var.project}-services"
   monitor_type      = "DIMENSIONAL"
   monitor_dimension = "SERVICE"
 }
 
 resource "aws_ce_anomaly_subscription" "daily" {
-  name             = "${var.project}-anomalies"
-  frequency        = "DAILY"
-  monitor_arn_list = [aws_ce_anomaly_monitor.services.arn]
+  name      = "${var.project}-anomalies"
+  frequency = "DAILY"
+  monitor_arn_list = [
+    var.existing_anomaly_monitor_arn != "" ? var.existing_anomaly_monitor_arn : aws_ce_anomaly_monitor.services[0].arn
+  ]
 
   subscriber {
     type    = "EMAIL"

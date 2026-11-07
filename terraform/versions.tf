@@ -23,3 +23,7 @@ provider "aws" {
 data "aws_availability_zones" "available" {
   state = "available"
 }
+
+# TODO: add tf state file to store in S3 if needed.
+# S3 backend configuration can be added here to store the Terraform state file remotely.
+# for simplicity, the backend configuration is not included here.
