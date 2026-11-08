@@ -78,3 +78,4 @@ Screenshots are in [`docs/screenshots`](screenshots/):
 | [07_target_group_two_az.png](screenshots/07_target_group_two_az.png) | Targets spread across two AZs |
 | [08_rds_postgresql.png](screenshots/08_rds_postgresql.png) | RDS PostgreSQL instance and metrics |
 | [09_terraform_destroy.png](screenshots/09_terraform_destroy.png) | Full teardown after the demo (cost control) |
+| [10_load_testing.png](screenshots/10_load_testing.png) | Load tests A (60 s, 5 clients) and B (180 s, 15 clients): ECS CPU up to 44%, no 5xx; below the 50% target, so no scale-out was needed |

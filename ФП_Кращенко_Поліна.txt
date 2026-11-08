@@ -148,6 +148,14 @@ Terraform (Infrastructure as Code):
     середній CPU 50%; ALBRequestCountPerTarget 500.
   Scale-out cooldown 60 с, scale-in cooldown 120 с.
 
+Навантажувальне тестування (скриншот 10):
+- Тест A: ./scripts/load_test.sh <ALB URL> 60 5 (60 с, 5 паралельних клієнтів).
+- Тест B: ./scripts/load_test.sh <ALB URL> 180 15 (180 с, 15 паралельних клієнтів).
+- Результат: CPU ECS зріс з 0.1% до 44%, кількість запитів ALB до 415, помилок 5xx немає,
+  навантаження на RDS стабільне. Застосунок витримав навантаження двома задачами.
+- CPU не перевищив цільові 50% політики target tracking, тому Auto Scaling кількість задач
+  не змінював, що є очікуваною поведінкою: масштабування спрацьовує лише при перевищенні цілі.
+
 Оптимізація витрат (terraform/cost.tf):
 - AWS Budget goit-final-monthly: $50/міс, e-mail при 50% і 80% фактичних витрат та 100% прогнозованих.
 - Cost Explorer: аналіз за Service з фільтром за тегом Project = goit-final
@@ -176,3 +184,5 @@ Terraform (Infrastructure as Code):
 7. 07_target_group_two_az.png: target group goit-final-tg, 2 healthy цілі у двох різних AZ.
 8. 08_rds_postgresql.png: RDS PostgreSQL goit-final-pg (db.t4g.micro, Available) та його метрики CloudWatch.
 9. 09_terraform_destroy.png: terraform destroy після демонстрації, щоб не нараховувались витрати.
+10. 10_load_testing.png: навантажувальне тестування (тест A: 60 с, 5 клієнтів; тест B: 180 с, 15 клієнтів)
+    і реакція метрик на CloudWatch-дашборді.

@@ -15,7 +15,7 @@ Flask-застосунок у контейнерах **Amazon ECS на AWS Farga
 | База даних | RDS PostgreSQL 16, ізольовані підмережі, шифрування, пароль у Secrets Manager | [`rds.tf`](terraform/rds.tf), [скриншот RDS](docs/screenshots/08_rds_postgresql.png) |
 | Застосунок доступний за публічним URL | ALB DNS, лічильник відвідувань з БД | [відповідь застосунку](docs/screenshots/03_app_public_url.png) |
 | Моніторинг CloudWatch та алерти | Дашборд, Container Insights, логи, 8 алармів → SNS → e-mail | [`monitoring.tf`](terraform/monitoring.tf), [дашборд](docs/screenshots/05_cloudwatch_dashboard.png) |
-| Автомасштабування та балансування | ALB + health check; target tracking за CPU 50% і 500 запитів/задачу, 2–6 задач | [`alb.tf`](terraform/alb.tf), [`ecs.tf`](terraform/ecs.tf), [сервіс за ALB](docs/screenshots/06_ecs_service_alb.png), [цілі у 2 AZ](docs/screenshots/07_target_group_two_az.png) |
+| Автомасштабування та балансування | ALB + health check; target tracking за CPU 50% і 500 запитів/задачу, 2–6 задач | [`alb.tf`](terraform/alb.tf), [`ecs.tf`](terraform/ecs.tf), [сервіс за ALB](docs/screenshots/06_ecs_service_alb.png), [цілі у 2 AZ](docs/screenshots/07_target_group_two_az.png), [навантажувальний тест](docs/screenshots/10_load_testing.png) |
 | Оптимізація витрат | AWS Budget з 3 порогами, аналіз у Cost Explorer за тегом `Project`, видалення стеку після демо | [`cost.tf`](terraform/cost.tf), [operations.md](docs/operations.md#cost-optimization), [destroy](docs/screenshots/09_terraform_destroy.png) |
 | Опис вибору архітектури й технологій | Порівняння з EKS, EC2, Elastic Beanstalk, DynamoDB | [architecture.md](docs/architecture.md#2-technology-justification) |
 
@@ -46,4 +46,5 @@ terraform -chdir=terraform destroy                                 # зупин�
 | **Застосунок за публічним URL** ![](docs/screenshots/03_app_public_url.png) | **ECS-кластер** ![](docs/screenshots/04_ecs_cluster_overview.png) |
 | **CloudWatch-дашборд** ![](docs/screenshots/05_cloudwatch_dashboard.png) | **Сервіс за ALB** ![](docs/screenshots/06_ecs_service_alb.png) |
 | **Target group, 2 AZ** ![](docs/screenshots/07_target_group_two_az.png) | **RDS PostgreSQL** ![](docs/screenshots/08_rds_postgresql.png) |
-| **terraform plan** ![](docs/screenshots/02_terraform_plan_security_groups.png) | **terraform destroy** ![](docs/screenshots/09_terraform_destroy.png) |
+| **Навантажувальне тестування** ![](docs/screenshots/10_load_testing.png) | **terraform plan** ![](docs/screenshots/02_terraform_plan_security_groups.png) |
+| **terraform destroy** ![](docs/screenshots/09_terraform_destroy.png) | |
