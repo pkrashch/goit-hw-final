@@ -55,7 +55,7 @@ Implemented in `cost.tf`:
 - **AWS Budget** `goit-final-monthly`: default $50/month, e-mail at 50% actual, 80% actual, 100% forecasted.
 - **Cost Anomaly Detection**: monitor per AWS service, daily e-mail when an anomaly impact is >= $5.
 
-Design choices that reduce cost: Fargate Spot-free minimal task size (0.25 vCPU/512 MiB), `db.t4g.micro` (Graviton), single NAT, single-AZ RDS, 14-day log retention, ECR lifecycle policy, `terraform destroy` after demo.
+Design choices that reduce cost: minimal task size without Fargate Spot (0.25 vCPU/512 MiB), `db.t4g.micro` (Graviton), single NAT, single-AZ RDS, 14-day log retention, ECR lifecycle policy, `terraform destroy` after demo.
 
 ### Analysis with Cost Explorer (console)
 1. Billing and Cost Management -> Cost Explorer -> enable (first time only).

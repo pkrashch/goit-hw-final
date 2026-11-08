@@ -31,6 +31,4 @@ Documentation index:
 | Cost optimization (Cost Explorer / Budgets) | `cost.tf`, [operations.md](operations.md#cost-optimization) |
 | Description of architecture and technology choices | [architecture.md](architecture.md) |
 
-> The submission file `ФП_ПІБ.txt` should be assembled from `architecture.md` and `deployment.md`
-> (sections: environment, justification, diagram, deployment instructions) plus the public URL
-> and screenshots described in [operations.md](operations.md#evidence-to-attach).
+> Submission file: [`ФП_Кращенко_Поліна.txt`](../ФП_Кращенко_Поліна.txt) in the repository root.

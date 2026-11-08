@@ -1,0 +1,181 @@
+ФІНАЛЬНИЙ ПРОЄКТ: ВЕБЗАСТОСУНОК В AWS (ECS FARGATE + RDS POSTGRESQL)
+
+Репозиторій: https://github.com/pkrashch/goit-hw-final
+Публічний URL під час демонстрації: http://goit-final-alb-910628889.eu-central-1.elb.amazonaws.com
+(після демонстрації стек знищено командою terraform destroy для контролю витрат, див. скриншот 9)
+Регіон: eu-central-1 (Frankfurt)
+
+
+========================================================================
+1. ОПИС СЕРЕДОВИЩА
+========================================================================
+
+Середовище: Amazon ECS на AWS Fargate (serverless-контейнери).
+
+Компоненти:
+- Application Load Balancer: публічна точка входу, HTTP :80, працює у 2 AZ.
+- ECS Fargate service: від 2 до 6 задач (0.25 vCPU / 512 MiB), лише в приватних підмережах.
+- Amazon ECR: реєстр Docker-образів, сканування при push, lifecycle-політика (останні 10 образів).
+- Amazon RDS PostgreSQL 16 (db.t4g.micro): ізольовані DB-підмережі, шифрування at rest.
+- AWS Secrets Manager: пароль БД генерує сам RDS, ECS передає його в контейнер як secret.
+- VPC 10.0.0.0/16: публічні, приватні app- та приватні DB-підмережі у 2 AZ.
+- CloudWatch: Logs, Container Insights, 8 алармів, дашборд goit-final-overview.
+- SNS: топік goit-final-alerts з e-mail підпискою для алармів.
+- Application Auto Scaling: target tracking за CPU і за кількістю запитів ALB на задачу.
+- AWS Budgets: місячний бюджет з e-mail сповіщеннями; Cost Explorer для аналізу.
+
+Застосунок: Flask + Gunicorn, лічильник відвідувань у PostgreSQL.
+Ендпоінти: "/" (запис і читання з БД), "/health" (health check ALB), "/load" (CPU-навантаження для тесту масштабування).
+
+
+========================================================================
+2. ОБҐРУНТУВАННЯ ВИБОРУ ТЕХНОЛОГІЙ
+========================================================================
+
+ECS на Fargate, а не EKS / EC2 / Elastic Beanstalk:
+- Немає серверів, які треба патчити й підбирати за розміром; керується лише task definition.
+- Control plane EKS коштує близько $73/міс, що невиправдано для навчального проєкту. Fargate не має фіксованої плати.
+- Порівняно з Elastic Beanstalk, ECS орієнтований на контейнери, дає явний контроль над мережею та IAM і ближчий до production-практики.
+- Порівняно з EC2, немає керування ОС, а масштабування налаштовується однією політикою.
+
+RDS PostgreSQL, а не DynamoDB:
+- Модель даних реляційна, SQL є найпоширенішою навичкою.
+- RDS бере на себе бекапи, шифрування й патчі; db.t4g.micro (Graviton) тримає вартість низькою.
+- Розміщення БД в ізольованих підмережах наочно демонструє мережеву ізоляцію.
+
+Terraform (Infrastructure as Code):
+- Інфраструктура відтворювана, її можна переглянути в коді та повністю видалити однією командою, що важливо для контролю витрат.
+- Terraform створює ті самі ресурси, що й AWS Console; консоль використано для перевірки та скриншотів.
+
+Безпека:
+- Три рівні підмереж: public (ALB, NAT), private-app (Fargate), private-db (RDS). DB-підмережі не мають маршруту в інтернет.
+- Задачі без публічних IP; вихідний трафік лише через NAT Gateway.
+- Security Groups за принципом найменших привілеїв, з посиланнями SG-на-SG:
+    alb-sg: вхід TCP 80 з 0.0.0.0/0; вихід TCP 8080 лише до app-sg
+    app-sg: вхід TCP 8080 лише з alb-sg; вихід TCP 443 (NAT) і TCP 5432 лише до db-sg
+    db-sg:  вхід TCP 5432 лише з app-sg
+- IAM-ролі:
+    Task execution role: AmazonECSTaskExecutionRolePolicy + secretsmanager:GetSecretValue лише на один secret ARN.
+    Task role: окрема ідентичність застосунку без дозволів (код не викликає AWS API).
+- Захист пароля БД: manage_master_user_password = true, тобто пароль ніколи не з'являється в коді, змінних чи логах. Підключення з sslmode=require, БД не публічна.
+- Оптимізація підключень: фіксована кількість воркерів Gunicorn обмежує загальну кількість з'єднань (задачі x воркери), що значно нижче ліміту db.t4g.micro; на кількість з'єднань налаштовано аларм.
+
+
+========================================================================
+3. АРХІТЕКТУРНА СХЕМА
+========================================================================
+
+Схема у вигляді зображення: docs/screenshots/00_architecture_diagram.png
+(також у репозиторії: docs/architecture.md, розділ "Architecture diagram")
+
+Текстова версія:
+
+                          Internet users
+                                |  HTTP :80
+  +-----------------------------v---------------------------------+
+  | VPC 10.0.0.0/16                                               |
+  |  Public subnets (AZ a, AZ b):   [ ALB, alb-sg ]   [ NAT GW ]  |
+  |                                     |  :8080          ^       |
+  |  Private app subnets (AZ a, b): [ Fargate tasks 2..6, app-sg ]|
+  |                                     |  :5432    egress 443    |
+  |  Private DB subnets (AZ a, b):  [ RDS PostgreSQL, db-sg ]     |
+  +---------------------------------------------------------------+
+  NAT GW -> Internet Gateway -> ECR / Secrets Manager / CloudWatch Logs
+
+  Application Auto Scaling --> змінює desired count ECS-сервісу
+  CloudWatch Alarms --> SNS topic --> e-mail
+  AWS Budgets --> e-mail
+
+
+========================================================================
+4. ІНСТРУКЦІЯ З ДЕПЛОЮ ТА НАЛАШТУВАНЬ
+========================================================================
+
+Передумови: AWS CLI v2 з налаштованими credentials, Terraform >= 1.5, Docker.
+Одноразово в консолі: Billing and Cost Management -> Cost Explorer -> Launch.
+
+Крок 1. Змінні:
+    cd terraform
+    cp terraform.tfvars.example terraform.tfvars
+    # вказати alert_email (обов'язково), за потреби monthly_budget_usd
+
+Крок 2. Деплой (скрипт виконує три фази):
+    ./scripts/deploy.sh
+    # 1) terraform apply -target=aws_ecr_repository.app  (створює ECR)
+    # 2) docker build --platform linux/amd64 + docker push в ECR
+    # 3) terraform apply  (VPC, RDS, ALB, ECS, алярми, бюджет; RDS ~5-10 хв)
+
+Крок 3. Підтвердити SNS-підписку за посиланням з листа AWS.
+
+Крок 4. Перевірка:
+    URL=$(terraform output -raw app_url)
+    curl "$URL/health"   # {"status":"ok"}
+    curl "$URL/"         # visits збільшується з кожним запитом -> БД працює
+
+Навантажувальне тестування:
+    ./scripts/load_test.sh "$URL" 300 30
+    # 30 паралельних клієнтів 5 хв на CPU-ендпоінт /load; очікувано CPU > 50%,
+    # Auto Scaling збільшує кількість задач з 2 до 6, після тесту повертає до 2.
+
+Оновлення застосунку:
+    docker build ... && docker push ...
+    aws ecs update-service --cluster goit-final-cluster --service goit-final-svc --force-new-deployment
+    # deployment circuit breaker автоматично відкочує невдалий деплой
+
+Видалення (зупинка витрат):
+    terraform destroy
+
+Повна інструкція: docs/deployment.md
+
+
+========================================================================
+5. МОНІТОРИНГ, МАСШТАБУВАННЯ, ОПТИМІЗАЦІЯ ВИТРАТ
+========================================================================
+
+Моніторинг (terraform/monitoring.tf):
+- Логи контейнерів: /ecs/goit-final (зберігання 14 днів); Container Insights увімкнено.
+- Дашборд goit-final-overview: CPU/пам'ять ECS, запити й 5xx ALB, кількість задач, CPU та з'єднання RDS.
+- 8 алармів, усі шлють сповіщення в SNS-топік goit-final-alerts:
+    ecs-cpu-high (CPU > 80% 3 хв), ecs-memory-high (> 85% 3 хв),
+    alb-5xx (> 5 за хв), alb-unhealthy-hosts (будь-який unhealthy target),
+    alb-latency (> 1 с), rds-cpu-high (> 80%), rds-low-storage (< 2 GiB),
+    rds-connections-high (> 60).
+
+Балансування та автомасштабування (terraform/alb.tf, terraform/ecs.tf):
+- ALB з target group типу ip, health check GET /health кожні 15 с.
+- Задачі розподілено між двома AZ (IP 10.0.10.x та 10.0.11.x на скриншоті 7 належать різним приватним підмережам).
+- Application Auto Scaling: min 2, max 6 задач, дві target tracking політики:
+    середній CPU 50%; ALBRequestCountPerTarget 500.
+  Scale-out cooldown 60 с, scale-in cooldown 120 с.
+
+Оптимізація витрат (terraform/cost.tf):
+- AWS Budget goit-final-monthly: $50/міс, e-mail при 50% і 80% фактичних витрат та 100% прогнозованих.
+- Cost Explorer: аналіз за Service з фільтром за тегом Project = goit-final
+  (усі ресурси автоматично тегуються через default_tags провайдера).
+  Найвитратніші сервіси для цієї архітектури: NAT Gateway (EC2-Other), Elastic Load Balancing, RDS, Fargate.
+- Архітектурні рішення для економії: мінімальний розмір задачі, Graviton-інстанс RDS,
+  один NAT Gateway, single-AZ RDS, 14 днів зберігання логів, lifecycle-політика ECR,
+  повне видалення стеку після демонстрації (скриншот 9).
+
+Свідомі обмеження (заради вартості): лише HTTP (для production: ACM-сертифікат і HTTPS),
+один NAT Gateway, single-AZ RDS, локальний Terraform state.
+
+
+========================================================================
+6. СКРИНШОТИ (папка docs/screenshots)
+========================================================================
+
+0. 00_architecture_diagram.png: архітектурна схема рішення.
+1. 01_terraform_init.png: структура проєкту та успішний terraform init.
+2. 02_terraform_plan_security_groups.png: terraform plan, 61 ресурс до створення; видно правила Security Groups
+   (alb -> app :8080, app -> db :5432).
+3. 03_app_public_url.png: застосунок доступний за публічним URL ALB, відповідь з БД (visits).
+4. 04_ecs_cluster_overview.png: ECS-кластер goit-final-cluster, Container Insights увімкнено, 2/2 задачі працюють.
+5. 05_cloudwatch_dashboard.png: CloudWatch-дашборд goit-final-overview (ECS CPU/пам'ять, запити ALB, задачі, RDS).
+6. 06_ecs_service_alb.png: сервіс goit-final-svc за Application Load Balancer, 2 healthy targets.
+7. 07_target_group_two_az.png: target group goit-final-tg, 2 healthy цілі у двох різних AZ.
+8. 08_rds_postgresql.png: RDS PostgreSQL goit-final-pg (db.t4g.micro, Available) та його метрики CloudWatch.
+9. 09_terraform_destroy.png: terraform destroy після демонстрації, щоб не нараховувались витрати.
+
+Конфігурація алармів, політик автомасштабування та бюджету повністю описана в коді:
+terraform/monitoring.tf, terraform/ecs.tf, terraform/cost.tf.
