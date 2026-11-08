@@ -176,6 +176,3 @@ Terraform (Infrastructure as Code):
 7. 07_target_group_two_az.png: target group goit-final-tg, 2 healthy цілі у двох різних AZ.
 8. 08_rds_postgresql.png: RDS PostgreSQL goit-final-pg (db.t4g.micro, Available) та його метрики CloudWatch.
 9. 09_terraform_destroy.png: terraform destroy після демонстрації, щоб не нараховувались витрати.
-
-Конфігурація алармів, політик автомасштабування та бюджету повністю описана в коді:
-terraform/monitoring.tf, terraform/ecs.tf, terraform/cost.tf.
