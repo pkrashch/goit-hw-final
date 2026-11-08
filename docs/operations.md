@@ -63,10 +63,18 @@ Design choices that reduce cost: minimal task size without Fargate Spot (0.25 vC
 3. Identify the top services. Typically: **NAT Gateway / EC2-Other**, **Elastic Load Balancing**, **RDS**, **Fargate**.
 4. Use Savings Plans / Compute Savings Plan recommendations if it runs long-term, and consider Fargate Spot for non-critical workloads.
 
-### Evidence to attach
-- Screenshot: browser showing the public URL response.
-- Screenshot: CloudWatch dashboard during load test.
-- Screenshot: ECS service with scaled-out task count and scaling activity.
-- Screenshot / e-mail: SNS alarm notification.
-- Screenshot: AWS Budgets page and Cost Explorer grouped by service.
-- Screenshot: VPC resource map, security groups, IAM roles.
+### Evidence
+
+Screenshots are in [`docs/screenshots`](screenshots/):
+
+| Screenshot | Shows |
+|------------|-------|
+| [00_architecture_diagram.png](screenshots/00_architecture_diagram.png) | Architecture diagram |
+| [02_terraform_plan_security_groups.png](screenshots/02_terraform_plan_security_groups.png) | Planned infrastructure incl. Security Group rules |
+| [03_app_public_url.png](screenshots/03_app_public_url.png) | App reachable at the public ALB URL, reading/writing the DB |
+| [04_ecs_cluster_overview.png](screenshots/04_ecs_cluster_overview.png) | ECS cluster, Container Insights enabled |
+| [05_cloudwatch_dashboard.png](screenshots/05_cloudwatch_dashboard.png) | CloudWatch dashboard |
+| [06_ecs_service_alb.png](screenshots/06_ecs_service_alb.png) | ECS service behind the ALB, healthy targets |
+| [07_target_group_two_az.png](screenshots/07_target_group_two_az.png) | Targets spread across two AZs |
+| [08_rds_postgresql.png](screenshots/08_rds_postgresql.png) | RDS PostgreSQL instance and metrics |
+| [09_terraform_destroy.png](screenshots/09_terraform_destroy.png) | Full teardown after the demo (cost control) |
